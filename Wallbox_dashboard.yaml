@@ -1,0 +1,982 @@
+title: Wallbox
+path: wallbox
+type: panel
+cards:
+  - type: vertical-stack
+    cards:
+      - type: custom:button-card
+        name: ' '
+        show_icon: false
+        show_name: false
+        styles:
+          card:
+            - display: none
+        card_mod:
+          style:
+            .: |
+              :host {
+                --ha-card-background: transparent !important;
+              }
+            ha-card$: ''
+          class: null
+      - type: custom:button-card
+        name: ' '
+        show_icon: false
+        show_name: false
+        styles:
+          card:
+            - background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)'
+            - border: '1px solid #333'
+            - border-radius: 16px
+            - padding: 20px
+            - margin-bottom: 12px
+          grid:
+            - grid-template-areas: '"header_content"'
+            - grid-template-columns: 1fr
+            - justify-items: center
+        custom_fields:
+          header_content: |
+            [[[
+              const car = states['binary_sensor.goe_501900_car_0'];
+              const frc = states['select.goe_501900_frc'];
+              const modus = states['input_select.lademodus'];
+              let icon = '🔌';
+              let text = 'Kein Auto';
+              let color = '#666';
+              if (car && car.state === 'on') {
+                if (frc && frc.state === '2') {
+                  icon = '⚡';
+                  text = 'Lädt – ' + (modus ? modus.state : '');
+                  color = '#4CAF50';
+                } else {
+                  icon = '🚗';
+                  text = 'Verbunden – Pausiert';
+                  color = '#FF9800';
+                }
+              }
+              return `
+                <div style="display: flex; flex-direction: column; align-items: center; gap: 8px; width: 100%;">
+                  <div style="font-size: 24px; font-weight: bold; color: white; text-align: center;">⚡ Wallbox Steuerung</div>
+                  <div style="color: ${color}; font-size: 15px; text-align: center;">${icon} ${text}</div>
+                </div>
+              `;
+            ]]]
+        extra_styles: |
+          #header_content {
+            width: 100%;
+          }
+      - type: custom:button-card
+        name: ' '
+        show_icon: false
+        show_name: false
+        styles:
+          card:
+            - background: transparent
+            - box-shadow: none
+            - border: none
+            - padding: 0
+            - margin-bottom: 4px
+          grid:
+            - grid-template-areas: '"section_title"'
+            - grid-template-columns: 1fr
+            - justify-items: center
+        custom_fields:
+          section_title: |
+            [[[
+              return `<div style="color: #888; font-size: 12px; text-transform: uppercase; letter-spacing: 1.5px; text-align: center; padding: 4px 0; width: 100%;">🔘 Lademodus</div>`;
+            ]]]
+        extra_styles: |
+          #section_title {
+            width: 100%;
+          }
+      - type: horizontal-stack
+        cards:
+          - type: custom:button-card
+            name: Kein Laden
+            icon: mdi:power-plug-off
+            tap_action:
+              action: call-service
+              service: input_select.select_option
+              service_data:
+                entity_id: input_select.lademodus
+                option: Kein Laden
+            state:
+              - operator: template
+                value: |
+                  [[[
+                    return states['input_select.lademodus'].state === 'Kein Laden';
+                  ]]]
+                styles:
+                  card:
+                    - background: rgba(244, 67, 54, 0.3)
+                    - border: '2px solid #F44336'
+                  icon:
+                    - color: '#F44336'
+                  name:
+                    - color: '#F44336'
+                    - font-weight: bold
+            styles:
+              card:
+                - background: rgba(255,255,255,0.05)
+                - border: '1px solid #333'
+                - border-radius: 12px
+                - padding: 16px 8px
+                - transition: all 0.3s ease
+              icon:
+                - color: '#888'
+                - width: 28px
+                - height: 28px
+              name:
+                - font-size: 12px
+                - color: '#888'
+                - margin-top: 8px
+                - text-align: center
+          - type: custom:button-card
+            name: PV-Überschuss
+            icon: mdi:solar-power
+            tap_action:
+              action: call-service
+              service: input_select.select_option
+              service_data:
+                entity_id: input_select.lademodus
+                option: PV-Überschuss
+            state:
+              - operator: template
+                value: |
+                  [[[
+                    return states['input_select.lademodus'].state === 'PV-Überschuss';
+                  ]]]
+                styles:
+                  card:
+                    - background: rgba(255, 193, 7, 0.3)
+                    - border: '2px solid #FFC107'
+                  icon:
+                    - color: '#FFC107'
+                  name:
+                    - color: '#FFC107'
+                    - font-weight: bold
+            styles:
+              card:
+                - background: rgba(255,255,255,0.05)
+                - border: '1px solid #333'
+                - border-radius: 12px
+                - padding: 16px 8px
+                - transition: all 0.3s ease
+              icon:
+                - color: '#888'
+                - width: 28px
+                - height: 28px
+              name:
+                - font-size: 12px
+                - color: '#888'
+                - margin-top: 8px
+                - text-align: center
+          - type: custom:button-card
+            name: Schnell
+            icon: mdi:lightning-bolt
+            tap_action:
+              action: call-service
+              service: input_select.select_option
+              service_data:
+                entity_id: input_select.lademodus
+                option: Schnell
+            state:
+              - operator: template
+                value: |
+                  [[[
+                    return states['input_select.lademodus'].state === 'Schnell';
+                  ]]]
+                styles:
+                  card:
+                    - background: rgba(33, 150, 243, 0.3)
+                    - border: '2px solid #2196F3'
+                  icon:
+                    - color: '#2196F3'
+                  name:
+                    - color: '#2196F3'
+                    - font-weight: bold
+            styles:
+              card:
+                - background: rgba(255,255,255,0.05)
+                - border: '1px solid #333'
+                - border-radius: 12px
+                - padding: 16px 8px
+                - transition: all 0.3s ease
+              icon:
+                - color: '#888'
+                - width: 28px
+                - height: 28px
+              name:
+                - font-size: 12px
+                - color: '#888'
+                - margin-top: 8px
+                - text-align: center
+          - type: custom:button-card
+            name: Manuell
+            icon: mdi:tune-variant
+            tap_action:
+              action: call-service
+              service: input_select.select_option
+              service_data:
+                entity_id: input_select.lademodus
+                option: Manuell
+            state:
+              - operator: template
+                value: |
+                  [[[
+                    return states['input_select.lademodus'].state === 'Manuell';
+                  ]]]
+                styles:
+                  card:
+                    - background: rgba(156, 39, 176, 0.3)
+                    - border: '2px solid #9C27B0'
+                  icon:
+                    - color: '#9C27B0'
+                  name:
+                    - color: '#9C27B0'
+                    - font-weight: bold
+            styles:
+              card:
+                - background: rgba(255,255,255,0.05)
+                - border: '1px solid #333'
+                - border-radius: 12px
+                - padding: 16px 8px
+                - transition: all 0.3s ease
+              icon:
+                - color: '#888'
+                - width: 28px
+                - height: 28px
+              name:
+                - font-size: 12px
+                - color: '#888'
+                - margin-top: 8px
+                - text-align: center
+      - type: custom:button-card
+        name: ' '
+        show_name: false
+        show_icon: false
+        styles:
+          card:
+            - background: rgba(255,255,255,0.03)
+            - border: '1px solid #333'
+            - border-radius: 16px 16px 0 0
+            - border-bottom: none
+            - padding: 16px 16px 8px 16px
+            - margin-top: 12px
+          grid:
+            - grid-template-areas: '"energy_header"'
+            - grid-template-columns: 1fr
+            - justify-items: center
+        custom_fields:
+          energy_header: |
+            [[[
+              return `<div style="color: #888; font-size: 12px; text-transform: uppercase; letter-spacing: 1.5px; text-align: center; width: 100%;">📊 Energieübersicht</div>`;
+            ]]]
+        extra_styles: |
+          #energy_header {
+            width: 100%;
+          }
+      - type: horizontal-stack
+        cards:
+          - type: custom:mini-graph-card
+            name: ☀️ PV-Leistung
+            icon: mdi:solar-power
+            entities:
+              - entity: sensor.pv_fronius_und_mptt
+                name: PV
+                color: '#FFC107'
+            hours_to_show: 24
+            points_per_hour: 4
+            line_width: 2
+            font_size: 75
+            animate: true
+            show:
+              name: true
+              icon: true
+              state: true
+              graph: line
+              fill: fade
+              labels: false
+              points: false
+            tap_action:
+              action: more-info
+            color_thresholds:
+              - value: 0
+                color: '#666'
+              - value: 500
+                color: '#FF9800'
+              - value: 2000
+                color: '#FFC107'
+              - value: 5000
+                color: '#4CAF50'
+            card_mod:
+              style: |
+                ha-card {
+                  background: rgba(255,193,7,0.08) !important;
+                  border: 1px solid rgba(255,193,7,0.2) !important;
+                  border-radius: 0 !important;
+                }
+          - type: custom:mini-graph-card
+            name: 🔋 Batterie
+            icon: mdi:battery-charging
+            entities:
+              - entity: sensor.victron_mqtt_c0619ab6af4d_battery_512_battery_power
+                name: Leistung
+                color: '#4CAF50'
+              - entity: sensor.battery_soc
+                name: SoC
+                color: '#2196F3'
+                y_axis: secondary
+            hours_to_show: 24
+            points_per_hour: 4
+            line_width: 2
+            font_size: 75
+            animate: true
+            show:
+              name: true
+              icon: true
+              state: true
+              graph: line
+              fill: fade
+              labels: false
+              points: false
+              legend: true
+            tap_action:
+              action: more-info
+            color_thresholds:
+              - value: -2000
+                color: '#FF9800'
+              - value: 0
+                color: '#666'
+              - value: 2000
+                color: '#4CAF50'
+            card_mod:
+              style: |
+                ha-card {
+                  background: rgba(76,175,80,0.08) !important;
+                  border: 1px solid rgba(76,175,80,0.2) !important;
+                  border-radius: 0 !important;
+                }
+      - type: horizontal-stack
+        cards:
+          - type: custom:mini-graph-card
+            name: 🏠 Netz
+            icon: mdi:transmission-tower
+            entities:
+              - entity: sensor.victron_mqtt_c0619ab6af4d_grid_30_grid_power
+                name: Netz
+                color: '#F44336'
+            hours_to_show: 24
+            points_per_hour: 4
+            line_width: 2
+            font_size: 75
+            animate: true
+            show:
+              name: true
+              icon: true
+              state: true
+              graph: line
+              fill: fade
+              labels: false
+              points: false
+            tap_action:
+              action: more-info
+            color_thresholds:
+              - value: -2000
+                color: '#4CAF50'
+              - value: 0
+                color: '#666'
+              - value: 500
+                color: '#FF9800'
+              - value: 2000
+                color: '#F44336'
+            card_mod:
+              style: |
+                ha-card {
+                  background: rgba(244,67,54,0.08) !important;
+                  border: 1px solid rgba(244,67,54,0.2) !important;
+                  border-radius: 0 !important;
+                }
+          - type: custom:mini-graph-card
+            name: 🚗 Wallbox
+            icon: mdi:ev-station
+            entities:
+              - entity: sensor.goe_501900_nrg_11
+                name: Wallbox
+                color: '#2196F3'
+            hours_to_show: 24
+            points_per_hour: 4
+            line_width: 2
+            font_size: 75
+            animate: true
+            show:
+              name: true
+              icon: true
+              state: true
+              graph: line
+              fill: fade
+              labels: false
+              points: false
+            tap_action:
+              action: more-info
+            color_thresholds:
+              - value: 0
+                color: '#666'
+              - value: 1380
+                color: '#FF9800'
+              - value: 3680
+                color: '#2196F3'
+              - value: 7000
+                color: '#4CAF50'
+            card_mod:
+              style: |
+                ha-card {
+                  background: rgba(33,150,243,0.08) !important;
+                  border: 1px solid rgba(33,150,243,0.2) !important;
+                  border-radius: 0 !important;
+                }
+      - type: custom:button-card
+        name: ' '
+        show_name: false
+        show_icon: false
+        styles:
+          card:
+            - background: rgba(255,255,255,0.03)
+            - border: '1px solid #333'
+            - border-top: none
+            - border-radius: 0 0 16px 16px
+            - padding: 12px 16px
+          grid:
+            - grid-template-areas: '"energy_summary"'
+            - grid-template-columns: 1fr
+            - justify-items: center
+        custom_fields:
+          energy_summary: |
+            [[[
+              const pv = parseFloat(states['sensor.pv_fronius_und_mptt']?.state) || 0;
+              const batt_power = parseFloat(states['sensor.victron_mqtt_c0619ab6af4d_battery_512_battery_power']?.state) || 0;
+              const grid = parseFloat(states['sensor.victron_mqtt_c0619ab6af4d_grid_30_grid_power']?.state) || 0;
+              const wallbox = parseFloat(states['sensor.goe_501900_nrg_11']?.state) || 0;
+              const batt_soc = parseFloat(states['sensor.battery_soc']?.state) || 0;
+
+              const formatW = (w) => {
+                if (Math.abs(w) >= 1000) return (w/1000).toFixed(1) + ' kW';
+                return Math.round(w) + ' W';
+              };
+
+              let battStatus, battColor;
+              if (batt_power > 50) { battStatus = '⬆ Laden'; battColor = '#4CAF50'; }
+              else if (batt_power < -50) { battStatus = '⬇ Entladen'; battColor = '#FF9800'; }
+              else { battStatus = '● Idle'; battColor = '#666'; }
+
+              let gridColor;
+              if (grid > 50) gridColor = '#F44336';
+              else if (grid < -50) gridColor = '#4CAF50';
+              else gridColor = '#666';
+
+              let socColor = '#4CAF50';
+              if (batt_soc < 20) socColor = '#F44336';
+              else if (batt_soc < 50) socColor = '#FF9800';
+
+              return `
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 12px; text-align: center; width: 100%;">
+                  <div>
+                    <div style="color: #FFC107; font-size: 16px; font-weight: bold;">${formatW(pv)}</div>
+                    <div style="color: #666; font-size: 10px;">PV aktuell</div>
+                  </div>
+                  <div>
+                    <div style="color: ${battColor}; font-size: 16px; font-weight: bold;">${formatW(Math.abs(batt_power))}</div>
+                    <div style="color: ${socColor}; font-size: 10px;">${batt_soc.toFixed(0)}% · ${battStatus}</div>
+                  </div>
+                  <div>
+                    <div style="color: ${gridColor}; font-size: 16px; font-weight: bold;">${formatW(Math.abs(grid))}</div>
+                    <div style="color: #666; font-size: 10px;">${grid > 50 ? '⬇ Bezug' : grid < -50 ? '⬆ Einspeisung' : '● Neutral'}</div>
+                  </div>
+                  <div>
+                    <div style="color: #2196F3; font-size: 16px; font-weight: bold;">${formatW(wallbox)}</div>
+                    <div style="color: #666; font-size: 10px;">Wallbox</div>
+                  </div>
+                </div>
+              `;
+            ]]]
+        extra_styles: |
+          #energy_summary {
+            width: 100%;
+          }
+      - type: custom:button-card
+        name: ' '
+        show_name: false
+        show_icon: false
+        styles:
+          card:
+            - background: rgba(255,255,255,0.03)
+            - border: '1px solid #333'
+            - border-radius: 16px
+            - padding: 20px 16px
+            - margin-top: 12px
+          grid:
+            - grid-template-areas: '"pv_details"'
+            - grid-template-columns: 1fr
+            - justify-items: center
+        custom_fields:
+          pv_details: |
+            [[[
+              const ueberschuss_roh = parseFloat(states['sensor.verfuegbarer_pv_ueberschuss_geglaettet']?.state) || 0;
+              const ziel_wb = parseFloat(states['sensor.wallbox_ziel_uberschuss']?.state) || 0;
+              const zone = states['sensor.wallbox_ziel_uberschuss']?.attributes?.zone || '?';
+              const faktor = states['sensor.wallbox_ziel_uberschuss']?.attributes?.faktor || '?';
+              const batt_soc = parseFloat(states['sensor.battery_soc']?.state) || 0;
+              const prio_soc = parseFloat(states['input_number.batterie_priority_soc']?.state) || 80;
+
+              const formatW = (w) => {
+                if (Math.abs(w) >= 1000) return (w/1000).toFixed(1) + ' kW';
+                return Math.round(w) + ' W';
+              };
+
+              let zoneColor, zoneIcon;
+              if (batt_soc < prio_soc) { zoneColor = '#F44336'; zoneIcon = '🛑'; }
+              else if (batt_soc >= 99.5) { zoneColor = '#4CAF50'; zoneIcon = '✅'; }
+              else { zoneColor = '#FF9800'; zoneIcon = '⚡'; }
+
+              let uebColor = '#666';
+              if (ueberschuss_roh > 3000) uebColor = '#4CAF50';
+              else if (ueberschuss_roh > 1380) uebColor = '#FFC107';
+              else if (ueberschuss_roh > 0) uebColor = '#FF9800';
+              else uebColor = '#F44336';
+
+              let zielColor = '#666';
+              if (ziel_wb > 3000) zielColor = '#4CAF50';
+              else if (ziel_wb > 1380) zielColor = '#FFC107';
+              else if (ziel_wb > 0) zielColor = '#FF9800';
+              else zielColor = '#F44336';
+
+              return `
+                <div style="display: flex; flex-direction: column; gap: 12px; width: 100%;">
+                  <div style="color: #888; font-size: 12px; text-transform: uppercase; letter-spacing: 1.5px; text-align: center;">⚡ PV-Überschuss Details</div>
+                  <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; text-align: center;">
+                    <div style="background: rgba(255,255,255,0.05); border-radius: 10px; padding: 12px 8px;">
+                      <div style="color: #888; font-size: 11px; margin-bottom: 4px;">☀️ Roh-Überschuss</div>
+                      <div style="color: ${uebColor}; font-size: 20px; font-weight: bold;">${formatW(ueberschuss_roh)}</div>
+                      <div style="color: #555; font-size: 10px; margin-top: 4px;">PV − Haus</div>
+                    </div>
+                    <div style="background: rgba(255,255,255,0.05); border-radius: 10px; padding: 12px 8px; border: 1px solid ${zoneColor}33;">
+                      <div style="color: #888; font-size: 11px; margin-bottom: 4px;">${zoneIcon} Ziel Wallbox</div>
+                      <div style="color: ${zielColor}; font-size: 20px; font-weight: bold;">${formatW(ziel_wb)}</div>
+                      <div style="color: ${zoneColor}; font-size: 10px; margin-top: 4px;">Faktor: ${faktor}%</div>
+                    </div>
+                    <div style="background: rgba(255,255,255,0.05); border-radius: 10px; padding: 12px 8px;">
+                      <div style="color: #888; font-size: 11px; margin-bottom: 4px;">🔋 Batterie Zone</div>
+                      <div style="color: ${zoneColor}; font-size: 14px; font-weight: bold; margin-top: 6px;">${zone}</div>
+                      <div style="color: #555; font-size: 10px; margin-top: 4px;">Prio: ${prio_soc}%</div>
+                    </div>
+                  </div>
+                </div>
+              `;
+            ]]]
+        extra_styles: |
+          #pv_details {
+            width: 100%;
+          }
+      - type: custom:button-card
+        name: ' '
+        show_name: false
+        show_icon: false
+        styles:
+          card:
+            - background: rgba(255,255,255,0.03)
+            - border: '1px solid #333'
+            - border-radius: 16px
+            - padding: 20px 16px
+            - margin-top: 12px
+          grid:
+            - grid-template-areas: '"vehicle"'
+            - grid-template-columns: 1fr
+            - justify-items: center
+        custom_fields:
+          vehicle: |
+            [[[
+              const car_connected = states['binary_sensor.goe_501900_car_0']?.state === 'on';
+              const car_soc = parseFloat(states['sensor.garage_r5_batterie']?.state) || 0;
+              const soll_soc = parseFloat(states['number.garage_r5_soll_ladestand']?.state) || 80;
+              const min_soc = parseFloat(states['number.garage_r5_minimaler_ladestand']?.state) || 20;
+              const wallbox_w = parseFloat(states['sensor.goe_501900_nrg_11']?.state) || 0;
+              const session_wh = parseFloat(states['sensor.goe_501900_wh']?.state) || 0;
+              const amp = parseFloat(states['number.goe_501900_amp']?.state) || 0;
+              const psm = states['select.goe_501900_psm']?.state;
+              const phasen = psm === '1' ? '1-phasig' : '3-phasig';
+              const frc = states['select.goe_501900_frc']?.state;
+
+              const formatWh = (wh) => {
+                if (wh >= 1000) return (wh/1000).toFixed(2) + ' kWh';
+                return Math.round(wh) + ' Wh';
+              };
+
+              let socColor = '#4CAF50';
+              if (car_soc < 20) socColor = '#F44336';
+              else if (car_soc < 50) socColor = '#FF9800';
+
+              const connIcon = car_connected ? '🟢' : '🔴';
+              const connText = car_connected ? 'Verbunden' : 'Nicht verbunden';
+              const ladeStatus = frc === '2' ? '⚡ Aktiv' : '⏸ Pausiert';
+              const ladeColor = frc === '2' ? '#4CAF50' : '#FF9800';
+
+              return `
+                <div style="display: flex; flex-direction: column; gap: 12px; width: 100%;">
+                  
+                  <div style="color: #888; font-size: 12px; text-transform: uppercase; letter-spacing: 1.5px; text-align: center; padding-bottom: 4px;">🚗 Fahrzeug</div>
+                  
+                  <div style="display: flex; justify-content: center; align-items: center; gap: 8px;">
+                    <span style="font-size: 22px;">🚗</span>
+                    <span style="color: white; font-size: 18px; font-weight: bold;">Renault R5</span>
+                    <span style="color: #aaa; font-size: 13px; margin-left: 8px;">${connIcon} ${connText}</span>
+                  </div>
+
+                  <div style="background: rgba(255,255,255,0.05); border-radius: 10px; padding: 12px;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                      <span style="color: #aaa; font-size: 13px;">Fahrzeug SoC</span>
+                      <span style="color: ${socColor}; font-size: 16px; font-weight: bold;">${car_soc.toFixed(0)}%</span>
+                    </div>
+                    <div style="background: #333; border-radius: 6px; height: 10px; overflow: hidden;">
+                      <div style="background: ${socColor}; height: 100%; width: ${car_soc}%; border-radius: 6px; transition: width 1s;"></div>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-top: 4px;">
+                      <span style="color: #666; font-size: 10px;">Min: ${min_soc}%</span>
+                      <span style="color: #666; font-size: 10px;">Ziel: ${soll_soc}%</span>
+                    </div>
+                  </div>
+
+                  <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;">
+                    <div style="background: rgba(255,255,255,0.05); border-radius: 8px; padding: 10px; text-align: center;">
+                      <div style="color: #888; font-size: 11px;">Ladestatus</div>
+                      <div style="color: ${ladeColor}; font-size: 14px; font-weight: bold; margin-top: 4px;">${ladeStatus}</div>
+                    </div>
+                    <div style="background: rgba(255,255,255,0.05); border-radius: 8px; padding: 10px; text-align: center;">
+                      <div style="color: #888; font-size: 11px;">Strom / Phasen</div>
+                      <div style="color: white; font-size: 14px; font-weight: bold; margin-top: 4px;">${amp}A · ${phasen}</div>
+                    </div>
+                    <div style="background: rgba(255,255,255,0.05); border-radius: 8px; padding: 10px; text-align: center;">
+                      <div style="color: #888; font-size: 11px;">Session</div>
+                      <div style="color: #2196F3; font-size: 14px; font-weight: bold; margin-top: 4px;">${formatWh(session_wh)}</div>
+                    </div>
+                  </div>
+                </div>
+              `;
+            ]]]
+        extra_styles: |
+          #vehicle {
+            width: 100%;
+          }
+      - type: conditional
+        conditions:
+          - entity: input_select.lademodus
+            state: PV-Überschuss
+        card:
+          type: custom:button-card
+          name: ' '
+          show_icon: false
+          show_name: false
+          styles:
+            card:
+              - background: rgba(255,255,255,0.03)
+              - border: '1px solid #333'
+              - border-radius: 16px
+              - padding: 20px 16px
+              - margin-top: 12px
+            grid:
+              - grid-template-areas: '"slider_info"'
+              - grid-template-columns: 1fr
+              - justify-items: center
+          custom_fields:
+            slider_info: |
+              [[[
+                const batt_soc = parseFloat(states['sensor.battery_soc']?.state) || 0;
+                const prio_soc = parseFloat(states['input_number.batterie_priority_soc']?.state) || 80;
+                const anteil = parseFloat(states['input_number.wallbox_anteil_ueberschuss']?.state) || 50;
+                const ueberschuss = parseFloat(states['sensor.verfuegbarer_pv_ueberschuss_geglaettet']?.state) || 0;
+                
+                const formatW = (w) => {
+                  if (Math.abs(w) >= 1000) return (w/1000).toFixed(1) + ' kW';
+                  return Math.round(w) + ' W';
+                };
+
+                let effektiverAnteil, anteilColor, statusText;
+                if (batt_soc < prio_soc) {
+                  effektiverAnteil = 0;
+                  anteilColor = '#F44336';
+                  statusText = '🛑 Batterie hat Priorität – Auto bekommt nichts';
+                } else if (batt_soc >= 99.5) {
+                  effektiverAnteil = 100;
+                  anteilColor = '#4CAF50';
+                  statusText = '✅ Batterie voll – Auto bekommt alles';
+                } else {
+                  effektiverAnteil = anteil;
+                  anteilColor = '#FF9800';
+                  statusText = '⚡ Überschuss wird geteilt';
+                }
+
+                const fuerAuto = ueberschuss * effektiverAnteil / 100;
+                const fuerBatt = ueberschuss * (100 - effektiverAnteil) / 100;
+
+                return `
+                  <div style="display: flex; flex-direction: column; gap: 12px; width: 100%; text-align: center;">
+                    <div style="color: #888; font-size: 12px; text-transform: uppercase; letter-spacing: 1.5px;">⚖️ Energieverteilung</div>
+                    
+                    <div style="color: ${anteilColor}; font-size: 13px;">${statusText}</div>
+                    
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;">
+                      <div style="background: rgba(76,175,80,0.1); border-radius: 8px; padding: 10px;">
+                        <div style="color: #888; font-size: 11px;">🔋 Batterie</div>
+                        <div style="color: #4CAF50; font-size: 16px; font-weight: bold; margin-top: 4px;">${100 - effektiverAnteil}%</div>
+                        <div style="color: #666; font-size: 11px; margin-top: 2px;">${formatW(fuerBatt)}</div>
+                      </div>
+                      <div style="background: rgba(255,255,255,0.05); border-radius: 8px; padding: 10px;">
+                        <div style="color: #888; font-size: 11px;">☀️ Gesamt</div>
+                        <div style="color: #FFC107; font-size: 16px; font-weight: bold; margin-top: 4px;">${formatW(ueberschuss)}</div>
+                        <div style="color: #666; font-size: 11px; margin-top: 2px;">Überschuss</div>
+                      </div>
+                      <div style="background: rgba(33,150,243,0.1); border-radius: 8px; padding: 10px;">
+                        <div style="color: #888; font-size: 11px;">🚗 Auto</div>
+                        <div style="color: #2196F3; font-size: 16px; font-weight: bold; margin-top: 4px;">${effektiverAnteil}%</div>
+                        <div style="color: #666; font-size: 11px; margin-top: 2px;">${formatW(fuerAuto)}</div>
+                      </div>
+                    </div>
+                  </div>
+                `;
+              ]]]
+          extra_styles: |
+            #slider_info {
+              width: 100%;
+            }
+      - type: conditional
+        conditions:
+          - entity: input_select.lademodus
+            state: PV-Überschuss
+        card:
+          type: entities
+          card_mod:
+            style: |
+              ha-card {
+                background: rgba(255,255,255,0.03) !important;
+                border: 1px solid #333 !important;
+                border-radius: 12px !important;
+                margin-top: 8px !important;
+              }
+          entities:
+            - entity: input_number.wallbox_anteil_ueberschuss
+              name: 🚗 Anteil für Auto
+              icon: mdi:scale-balance
+            - entity: input_number.batterie_priority_soc
+              name: 🔋 Batterie-Priorität SOC (%)
+              icon: mdi:battery-charging-high
+      - type: conditional
+        conditions:
+          - entity: input_select.lademodus
+            state: Manuell
+        card:
+          type: custom:button-card
+          name: ' '
+          show_icon: false
+          show_name: false
+          styles:
+            card:
+              - background: rgba(156,39,176,0.08)
+              - border: 1px solid rgba(156,39,176,0.3)
+              - border-radius: 16px
+              - padding: 20px 16px
+              - margin-top: 12px
+            grid:
+              - grid-template-areas: '"manual_info"'
+              - grid-template-columns: 1fr
+              - justify-items: center
+          custom_fields:
+            manual_info: |
+              [[[
+                const kw = parseFloat(states['input_number.wallbox_manuelle_leistung']?.state) || 1.4;
+                const psm = states['select.goe_501900_psm']?.state;
+                const phasen = psm === '1' ? 1 : 3;
+                const amp = Math.min(16, Math.max(6, Math.round((kw * 1000) / (phasen * 230))));
+                return `
+                  <div style="text-align: center; width: 100%;">
+                    <div style="color: #888; font-size: 12px; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 8px;">🎛 Manueller Modus</div>
+                    <div style="color: #9C27B0; font-size: 15px; font-weight: bold; margin-bottom: 4px;">
+                      Manuelle Leistung: ${kw} kW
+                    </div>
+                    <div style="color: #888; font-size: 12px;">
+                      → ${amp}A bei ${phasen}-phasig (${phasen}×230V)
+                    </div>
+                  </div>
+                `;
+              ]]]
+          extra_styles: |
+            #manual_info {
+              width: 100%;
+            }
+      - type: conditional
+        conditions:
+          - entity: input_select.lademodus
+            state: Manuell
+        card:
+          type: entities
+          card_mod:
+            style: |
+              ha-card {
+                background: rgba(156,39,176,0.08) !important;
+                border: 1px solid rgba(156,39,176,0.3) !important;
+                border-radius: 12px !important;
+                margin-top: 8px !important;
+              }
+          entities:
+            - entity: input_number.wallbox_manuelle_leistung
+              name: Ladeleistung (kW)
+              icon: mdi:speedometer
+      - type: conditional
+        conditions:
+          - entity: input_select.lademodus
+            state: Schnell
+        card:
+          type: custom:button-card
+          name: ' '
+          show_icon: false
+          show_name: false
+          styles:
+            card:
+              - background: rgba(33,150,243,0.08)
+              - border: 1px solid rgba(33,150,243,0.3)
+              - border-radius: 16px
+              - padding: 20px 16px
+              - margin-top: 12px
+            grid:
+              - grid-template-areas: '"fast_info"'
+              - grid-template-columns: 1fr
+              - justify-items: center
+          custom_fields:
+            fast_info: |
+              [[[
+                return `
+                  <div style="display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; width: 100%;">
+                    <div style="color: #888; font-size: 12px; text-transform: uppercase; letter-spacing: 1.5px;">⚡ Schnelllade Modus</div>
+                    <span style="font-size: 28px;">⚡</span>
+                    <div>
+                      <div style="color: #2196F3; font-size: 16px; font-weight: bold;">Schnellladen aktiv</div>
+                      <div style="color: #888; font-size: 13px;">3-phasig · 16A · max. 11 kW – unabhängig von PV</div>
+                    </div>
+                  </div>
+                `;
+              ]]]
+          extra_styles: |
+            #fast_info {
+              width: 100%;
+            }
+      - type: custom:button-card
+        name: ' '
+        show_name: false
+        show_icon: false
+        styles:
+          card:
+            - background: rgba(255,255,255,0.03)
+            - border: '1px solid #333'
+            - border-radius: 16px 16px 0 0
+            - padding: 16px 16px 8px 16px
+            - margin-top: 12px
+          grid:
+            - grid-template-areas: '"log_header"'
+            - grid-template-columns: 1fr
+        custom_fields:
+          log_header: |
+            [[[
+              const frc = states['select.goe_501900_frc']?.state;
+              const modus = states['input_select.lademodus']?.state || '?';
+              const amp = states['number.goe_501900_amp']?.state || '?';
+              const psm = states['select.goe_501900_psm']?.state;
+              const phasen = psm === '1' ? '1-ph' : '3-ph';
+              const ueberschuss = parseFloat(states['sensor.verfuegbarer_pv_ueberschuss_geglaettet']?.state) || 0;
+              const ziel = parseFloat(states['sensor.wallbox_ziel_uberschuss']?.state) || 0;
+              const batt_soc = parseFloat(states['sensor.battery_soc']?.state) || 0;
+              const prio_soc = parseFloat(states['input_number.batterie_priority_soc']?.state) || 80;
+              
+              const formatW = (w) => {
+                if (Math.abs(w) >= 1000) return (w/1000).toFixed(1) + 'kW';
+                return Math.round(w) + 'W';
+              };
+              
+              const frcIcon = frc === '2' ? '🟢' : '🔴';
+              const frcText = frc === '2' ? 'LADEN' : 'STOPP';
+              
+              let reason = '';
+              if (frc !== '2' && modus === 'PV-Überschuss') {
+                if (batt_soc < prio_soc) {
+                  reason = '⚠️ Batterie unter Priorität (' + batt_soc.toFixed(0) + '% < ' + prio_soc.toFixed(0) + '%)';
+                } else if (ueberschuss < 100) {
+                  reason = '☁️ Zu wenig PV-Überschuss (' + formatW(ueberschuss) + ')';
+                } else {
+                  reason = '⏳ Warte auf Überschuss > 1.6kW für 2 Min';
+                }
+              } else if (frc !== '2' && modus === 'Kein Laden') {
+                reason = '⏹ Manuell gestoppt';
+              }
+              
+              return `
+                <div style="width: 100%;">
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <span style="color: white; font-size: 16px; font-weight: bold;">📋 Wallbox Logbuch</span>
+                    <span style="font-size: 13px;">${frcIcon} ${frcText}</span>
+                  </div>
+                  
+                  <div style="color: #888; font-size: 12px; text-transform: uppercase; letter-spacing: 1.5px; text-align: center; padding-bottom: 8px;">📈 Aktueller Status</div>
+                  
+                  <div style="
+                    display: grid;
+                    grid-template-columns: repeat(4, 1fr);
+                    gap: 8px;
+                    background: rgba(0,0,0,0.3);
+                    border-radius: 8px;
+                    padding: 10px;
+                    margin-bottom: 8px;
+                    font-size: 12px;
+                    text-align: center;
+                  ">
+                    <div>
+                      <div style="color: #666;">Modus</div>
+                      <div style="color: #9C27B0; font-weight: bold;">${modus}</div>
+                    </div>
+                    <div>
+                      <div style="color: #666;">Strom</div>
+                      <div style="color: white; font-weight: bold;">${amp}A ${phasen}</div>
+                    </div>
+                    <div>
+                      <div style="color: #666;">Überschuss</div>
+                      <div style="color: #FFC107; font-weight: bold;">${formatW(ueberschuss)}</div>
+                    </div>
+                    <div>
+                      <div style="color: #666;">Für Wallbox</div>
+                      <div style="color: #4CAF50; font-weight: bold;">${formatW(ziel)}</div>
+                    </div>
+                  </div>
+                  
+                  ${reason ? `
+                    <div style="
+                      background: rgba(244,67,54,0.1);
+                      border: 1px solid rgba(244,67,54,0.3);
+                      border-radius: 8px;
+                      padding: 8px 12px;
+                      color: #FF9800;
+                      font-size: 13px;
+                      text-align: center;
+                    ">${reason}</div>
+                  ` : ''}
+                </div>
+              `;
+            ]]]
+      - type: iframe
+        url: /local/wallbox_log_viewer.html
+        aspect_ratio: 80%
+        card_mod:
+          style: |
+            ha-card {
+              background: transparent !important;
+              border: 1px solid #333 !important;
+              border-top: none !important;
+              border-radius: 0 0 16px 16px !important;
+              overflow: hidden;
+              box-shadow: none !important;
+            }
