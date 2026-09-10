@@ -1,0 +1,945 @@
+blueprint:
+  name: Wallbox PV-Überschuss Steuerung (go-e Charger)
+  description: >
+    Konsolidiert die komplette manuelle Wallbox-Steuerung (Lademodus-Wechsel,
+    PV-Überschuss Start/Stopp, Phasenumschaltung 1/3-phasig, dynamische
+    Stromanpassung, Batterie-Prioritäts-Stopp, Fahrzeug Connect/Disconnect
+    Cleanup und optionales Event-Logging) in EINER Automation. Alle
+    Entity-IDs sind als Inputs parametrisiert, damit das Ganze portabel auf
+    andere Systeme übertragen werden kann.
+
+    Voraussetzung: Ein Sensor, der den "Ziel-Überschuss für die Wallbox" in
+    Watt liefert (in der Originalkonfiguration: sensor.wallbox_ziel_uberschuss)
+    sowie optional ein Sensor für den geglätteten Roh-PV-Überschuss – diese
+    Berechnung ist NICHT Teil dieses Blueprints und muss bereits als eigener
+    Template-Sensor existieren.
+  domain: automation
+  source_url: https://github.com/
+  input:
+    wallbox_entities:
+      name: Wallbox Entities (go-e Charger)
+      icon: mdi:ev-station
+      input:
+        car_connected_entity:
+          name: Auto verbunden
+          description: binary_sensor, das anzeigt ob ein Fahrzeug angesteckt ist
+          selector:
+            entity:
+              domain: binary_sensor
+        wallbox_frc:
+          name: Force State (frc)
+          description: "select-Entity der Wallbox: 1 = Stopp, 2 = Laden"
+          selector:
+            entity:
+              domain: select
+        wallbox_psm:
+          name: Phasenmodus (psm)
+          description: "select-Entity der Wallbox: 1 = 1-phasig, 2 = 3-phasig"
+          selector:
+            entity:
+              domain: select
+        wallbox_amp:
+          name: Ladestrom (amp)
+          description: number-Entity zum Setzen des Ladestroms in A
+          selector:
+            entity:
+              domain: number
+    pv_entities:
+      name: PV / Batterie Sensoren
+      icon: mdi:solar-power
+      input:
+        pv_ueberschuss_sensor:
+          name: Ziel-Überschuss für Wallbox (Watt)
+          description: Sensor, der den für die Wallbox vorgesehenen Überschuss in W liefert
+          selector:
+            entity:
+              domain: sensor
+        battery_soc_sensor:
+          name: Batterie SOC Sensor (optional)
+          description: Leer lassen, wenn keine Hausbatterie vorhanden ist
+          default: ""
+          selector:
+            entity:
+              domain: sensor
+    helper_entities:
+      name: Helper (Input-Entities)
+      icon: mdi:tune
+      input:
+        lademodus_helper:
+          name: Lademodus (input_select)
+          description: "Optionen müssen exakt heißen: Kein Laden / PV-Überschuss / Schnell / Manuell"
+          selector:
+            entity:
+              domain: input_select
+        batterie_priority_soc_helper:
+          name: Batterie-Priorität SOC (input_number)
+          selector:
+            entity:
+              domain: input_number
+        manuelle_leistung_helper:
+          name: Manuelle Ladeleistung kW (input_number)
+          selector:
+            entity:
+              domain: input_number
+        letzter_phasenwechsel_helper:
+          name: Letzter Phasenwechsel (input_datetime)
+          selector:
+            entity:
+              domain: input_datetime
+    logging:
+      name: Logging (optional)
+      icon: mdi:notebook-outline
+      collapsed: true
+      input:
+        notify_target:
+          name: Notify-Entity für persistentes Log
+          description: >
+            z.B. notify.wallbox_log. Leer lassen, um das persistente
+            Event-Log zu deaktivieren (logbook.log läuft in jedem Fall
+            weiter).
+          default: ""
+          selector:
+            text: {}
+    thresholds:
+      name: Schwellwerte (Watt / Minuten)
+      icon: mdi:sine-wave
+      collapsed: true
+      input:
+        surplus_start_w:
+          name: Überschuss-Schwelle zum Start
+          default: 1380
+          selector:
+            number:
+              min: 100
+              max: 10000
+              step: 10
+              unit_of_measurement: W
+        surplus_start_for_minutes:
+          name: Start-Wartezeit
+          default: 2
+          selector:
+            number:
+              min: 0
+              max: 30
+              step: 1
+              unit_of_measurement: min
+        surplus_stop_w:
+          name: Überschuss-Schwelle zum Stopp
+          default: 1380
+          selector:
+            number:
+              min: 100
+              max: 10000
+              step: 10
+              unit_of_measurement: W
+        surplus_stop_for_minutes:
+          name: Stopp-Wartezeit
+          default: 5
+          selector:
+            number:
+              min: 0
+              max: 30
+              step: 1
+              unit_of_measurement: min
+        phase_down_threshold_w:
+          name: Schwelle Umschaltung auf 1-phasig
+          default: 3500
+          selector:
+            number:
+              min: 100
+              max: 10000
+              step: 10
+              unit_of_measurement: W
+        phase_up_threshold_w:
+          name: Schwelle Umschaltung auf 3-phasig
+          default: 4200
+          selector:
+            number:
+              min: 100
+              max: 20000
+              step: 10
+              unit_of_measurement: W
+        phase_stable_minutes:
+          name: Stabilitäts-Wartezeit vor Phasenwechsel
+          default: 5
+          selector:
+            number:
+              min: 0
+              max: 30
+              step: 1
+              unit_of_measurement: min
+        phase_cooldown_seconds:
+          name: Cooldown zwischen zwei Phasenwechseln
+          default: 600
+          selector:
+            number:
+              min: 0
+              max: 3600
+              step: 30
+              unit_of_measurement: s
+        battery_stop_seconds:
+          name: Bestätigungszeit Batterie-Prioritäts-Stopp
+          default: 30
+          selector:
+            number:
+              min: 0
+              max: 300
+              step: 5
+              unit_of_measurement: s
+        dynamic_adjust_interval:
+          name: Intervall dynamische Stromanpassung
+          default: "/2"
+          selector:
+            select:
+              options:
+                - "/1"
+                - "/2"
+                - "/3"
+                - "/5"
+                - "/10"
+        min_amp:
+          name: Minimaler Ladestrom
+          default: 6
+          selector:
+            number:
+              min: 6
+              max: 32
+              step: 1
+              unit_of_measurement: A
+        max_amp:
+          name: Maximaler Ladestrom
+          default: 16
+          selector:
+            number:
+              min: 6
+              max: 32
+              step: 1
+              unit_of_measurement: A
+        voltage:
+          name: Netzspannung
+          default: 230
+          selector:
+            number:
+              min: 200
+              max: 250
+              step: 1
+              unit_of_measurement: V
+
+variables:
+  car_connected_entity: !input car_connected_entity
+  wallbox_frc: !input wallbox_frc
+  wallbox_psm: !input wallbox_psm
+  wallbox_amp: !input wallbox_amp
+  pv_ueberschuss_sensor: !input pv_ueberschuss_sensor
+  battery_soc_sensor: !input battery_soc_sensor
+  lademodus_helper: !input lademodus_helper
+  batterie_priority_soc_helper: !input batterie_priority_soc_helper
+  manuelle_leistung_helper: !input manuelle_leistung_helper
+  letzter_phasenwechsel_helper: !input letzter_phasenwechsel_helper
+  notify_target: !input notify_target
+  min_amp: !input min_amp
+  max_amp: !input max_amp
+  voltage: !input voltage
+  phase_cooldown: !input phase_cooldown_seconds
+  phase_up_threshold: !input phase_up_threshold_w
+
+trigger:
+  - id: battery_priority_stop
+    trigger: numeric_state
+    entity_id: !input battery_soc_sensor
+    below: !input batterie_priority_soc_helper
+    for:
+      seconds: !input battery_stop_seconds
+  - id: dynamic_adjust
+    trigger: time_pattern
+    minutes: !input dynamic_adjust_interval
+  - id: car_disconnected
+    trigger: state
+    entity_id: !input car_connected_entity
+    to: "off"
+  - id: car_connected
+    trigger: state
+    entity_id: !input car_connected_entity
+    to: "on"
+  - id: lademodus_changed
+    trigger: state
+    entity_id: !input lademodus_helper
+  - id: manual_power_changed
+    trigger: state
+    entity_id: !input manuelle_leistung_helper
+  - id: pv_start
+    trigger: numeric_state
+    entity_id: !input pv_ueberschuss_sensor
+    above: !input surplus_start_w
+    for:
+      minutes: !input surplus_start_for_minutes
+  - id: pv_start
+    trigger: state
+    entity_id: !input lademodus_helper
+    to: "PV-Überschuss"
+    for:
+      minutes: !input surplus_start_for_minutes
+  - id: pv_stop
+    trigger: numeric_state
+    entity_id: !input pv_ueberschuss_sensor
+    below: !input surplus_stop_w
+    for:
+      minutes: !input surplus_stop_for_minutes
+  - id: phase_down
+    trigger: numeric_state
+    entity_id: !input pv_ueberschuss_sensor
+    below: !input phase_down_threshold_w
+    for:
+      minutes: !input phase_stable_minutes
+  - id: phase_up
+    trigger: numeric_state
+    entity_id: !input pv_ueberschuss_sensor
+    above: !input phase_up_threshold_w
+    for:
+      minutes: !input phase_stable_minutes
+  - id: log_frc
+    trigger: state
+    entity_id: !input wallbox_frc
+  - id: log_amp
+    trigger: state
+    entity_id: !input wallbox_amp
+  - id: log_psm
+    trigger: state
+    entity_id: !input wallbox_psm
+  - id: log_modus
+    trigger: state
+    entity_id: !input lademodus_helper
+  - id: log_car
+    trigger: state
+    entity_id: !input car_connected_entity
+
+condition: []
+
+action:
+  - choose:
+      # ---------------------------------------------------------------
+      # 1) Batterie-Priorität Sofortstopp
+      # ---------------------------------------------------------------
+      - conditions:
+          - condition: trigger
+            id: battery_priority_stop
+          - condition: state
+            entity_id: !input wallbox_frc
+            state: "2"
+          - condition: state
+            entity_id: !input lademodus_helper
+            state: "PV-Überschuss"
+        sequence:
+          - action: select.select_option
+            target:
+              entity_id: !input wallbox_frc
+            data:
+              option: "1"
+          - action: logbook.log
+            data:
+              name: "🔋 Batterie Priorität"
+              message: >
+                ⚠️ SOFORTSTOPP! Batterie SOC {{ states(battery_soc_sensor) }}%
+                unter Priorität {{ states(batterie_priority_soc_helper) }}%!
+                Wallbox gestoppt bis Batterie wieder geladen.
+
+      # ---------------------------------------------------------------
+      # 2) Dynamische Stromanpassung (alle X Minuten)
+      # ---------------------------------------------------------------
+      - conditions:
+          - condition: trigger
+            id: dynamic_adjust
+          - condition: state
+            entity_id: !input car_connected_entity
+            state: "on"
+          - condition: state
+            entity_id: !input wallbox_frc
+            state: "2"
+          - condition: state
+            entity_id: !input lademodus_helper
+            state: "PV-Überschuss"
+        sequence:
+          - variables:
+              ueberschuss: "{{ states(pv_ueberschuss_sensor) | float(0) }}"
+              phasen: "{{ 1 if states(wallbox_psm) == '1' else 3 }}"
+              aktuelle_amp: "{{ states(wallbox_amp) | int(6) }}"
+              soll_amp: >
+                {{ [[(ueberschuss / (phasen * voltage)) | int, max_amp] | min, min_amp] | max }}
+              differenz: "{{ (soll_amp | int - aktuelle_amp | int) | abs }}"
+          - if:
+              - condition: template
+                value_template: "{{ differenz >= 1 }}"
+            then:
+              - action: number.set_value
+                target:
+                  entity_id: !input wallbox_amp
+                data:
+                  value: "{{ soll_amp }}"
+              - action: logbook.log
+                data:
+                  name: "🔌 Wallbox Anpassung"
+                  message: >
+                    {{ aktuelle_amp }}A → {{ soll_amp }}A ({{ phasen }}ph) |
+                    Überschuss: {{ ueberschuss | round(0) }}W | Leistung:
+                    {{ soll_amp | int * phasen | int * voltage }}W
+
+      # ---------------------------------------------------------------
+      # 3) Fahrzeug getrennt – Cleanup
+      # ---------------------------------------------------------------
+      - conditions:
+          - condition: trigger
+            id: car_disconnected
+        sequence:
+          - action: select.select_option
+            target:
+              entity_id: !input wallbox_frc
+            data:
+              option: "1"
+          - action: number.set_value
+            target:
+              entity_id: !input wallbox_amp
+            data:
+              value: "{{ min_amp }}"
+          - action: logbook.log
+            data:
+              name: "Wallbox Cleanup"
+              message: >
+                Auto getrennt. frc=1, amp={{ min_amp }}A – bereit für
+                nächste Session.
+
+      # ---------------------------------------------------------------
+      # 4) Fahrzeug verbunden – Initialisierung
+      # ---------------------------------------------------------------
+      - conditions:
+          - condition: trigger
+            id: car_connected
+        sequence:
+          - choose:
+              - conditions:
+                  - condition: state
+                    entity_id: !input lademodus_helper
+                    state: "Schnell"
+                sequence:
+                  - action: select.select_option
+                    target:
+                      entity_id: !input wallbox_psm
+                    data:
+                      option: "2"
+                  - delay: "00:00:03"
+                  - action: number.set_value
+                    target:
+                      entity_id: !input wallbox_amp
+                    data:
+                      value: "{{ max_amp }}"
+                  - action: select.select_option
+                    target:
+                      entity_id: !input wallbox_frc
+                    data:
+                      option: "2"
+                  - action: logbook.log
+                    data:
+                      name: "Wallbox Init"
+                      message: >
+                        Auto verbunden. Modus: Schnell → 3ph {{ max_amp }}A,
+                        frc=2.
+              - conditions:
+                  - condition: state
+                    entity_id: !input lademodus_helper
+                    state: "Manuell"
+                sequence:
+                  - variables:
+                      kw: "{{ states(manuelle_leistung_helper) | float(1.4) }}"
+                      psm_option: "{{ '1' if kw <= 3.6 else '2' }}"
+                      phasen: "{{ 1 if kw <= 3.6 else 3 }}"
+                  - action: select.select_option
+                    target:
+                      entity_id: !input wallbox_psm
+                    data:
+                      option: "{{ psm_option }}"
+                  - delay: "00:00:03"
+                  - action: number.set_value
+                    target:
+                      entity_id: !input wallbox_amp
+                    data:
+                      value: >
+                        {{ [[((kw * 1000) / (phasen | int * voltage)) | round(0) | int, max_amp] | min, min_amp] | max }}
+                  - action: select.select_option
+                    target:
+                      entity_id: !input wallbox_frc
+                    data:
+                      option: "2"
+                  - action: logbook.log
+                    data:
+                      name: "Wallbox Init"
+                      message: "Auto verbunden. Modus: Manuell → {{ kw }}kW, frc=2."
+              - conditions:
+                  - condition: state
+                    entity_id: !input lademodus_helper
+                    state: "PV-Überschuss"
+                sequence:
+                  - action: number.set_value
+                    target:
+                      entity_id: !input wallbox_amp
+                    data:
+                      value: "{{ min_amp }}"
+                  - action: select.select_option
+                    target:
+                      entity_id: !input wallbox_frc
+                    data:
+                      option: "1"
+                  - action: logbook.log
+                    data:
+                      name: "Wallbox Init"
+                      message: >
+                        Auto verbunden. Modus: PV-Überschuss → frc=1, warte
+                        auf Überschuss-Trigger.
+            default:
+              - action: select.select_option
+                target:
+                  entity_id: !input wallbox_frc
+                data:
+                  option: "1"
+              - action: logbook.log
+                data:
+                  name: "Wallbox Init"
+                  message: "Auto verbunden. Modus: Kein Laden → frc=1."
+
+      # ---------------------------------------------------------------
+      # 5) Lademodus gewechselt
+      # ---------------------------------------------------------------
+      - conditions:
+          - condition: trigger
+            id: lademodus_changed
+          - condition: template
+            value_template: "{{ trigger.from_state.state != trigger.to_state.state }}"
+        sequence:
+          - choose:
+              - conditions:
+                  - condition: state
+                    entity_id: !input lademodus_helper
+                    state: "Kein Laden"
+                sequence:
+                  - action: select.select_option
+                    target:
+                      entity_id: !input wallbox_frc
+                    data:
+                      option: "1"
+                  - action: logbook.log
+                    data:
+                      name: "Wallbox Modus"
+                      message: "Modus → Kein Laden. frc=1."
+              - conditions:
+                  - condition: state
+                    entity_id: !input lademodus_helper
+                    state: "PV-Überschuss"
+                sequence:
+                  - action: select.select_option
+                    target:
+                      entity_id: !input wallbox_frc
+                    data:
+                      option: "1"
+                  - action: number.set_value
+                    target:
+                      entity_id: !input wallbox_amp
+                    data:
+                      value: "{{ min_amp }}"
+                  - action: logbook.log
+                    data:
+                      name: "Wallbox Modus"
+                      message: >
+                        Modus → PV-Überschuss. frc=1, warte auf
+                        Überschuss-Trigger.
+              - conditions:
+                  - condition: state
+                    entity_id: !input lademodus_helper
+                    state: "Schnell"
+                sequence:
+                  - action: select.select_option
+                    target:
+                      entity_id: !input wallbox_psm
+                    data:
+                      option: "2"
+                  - delay: "00:00:03"
+                  - action: number.set_value
+                    target:
+                      entity_id: !input wallbox_amp
+                    data:
+                      value: "{{ max_amp }}"
+                  - action: select.select_option
+                    target:
+                      entity_id: !input wallbox_frc
+                    data:
+                      option: "2"
+                  - action: logbook.log
+                    data:
+                      name: "Wallbox Modus"
+                      message: >
+                        Modus → Schnell. 3-phasig, {{ max_amp }}A, frc=2.
+                        Volle Leistung!
+              - conditions:
+                  - condition: state
+                    entity_id: !input lademodus_helper
+                    state: "Manuell"
+                sequence:
+                  - variables:
+                      kw: "{{ states(manuelle_leistung_helper) | float(1.4) }}"
+                      psm_option: "{{ '1' if kw <= 3.6 else '2' }}"
+                  - action: select.select_option
+                    target:
+                      entity_id: !input wallbox_psm
+                    data:
+                      option: "{{ psm_option }}"
+                  - delay: "00:00:03"
+                  - action: number.set_value
+                    target:
+                      entity_id: !input wallbox_amp
+                    data:
+                      value: >
+                        {% set psm = states(wallbox_psm) %}
+                        {% set phasen = 1 if psm == '1' else 3 %}
+                        {{ [[((kw * 1000) / (phasen * voltage)) | round(0) | int, max_amp] | min, min_amp] | max }}
+                  - action: select.select_option
+                    target:
+                      entity_id: !input wallbox_frc
+                    data:
+                      option: "2"
+                  - action: logbook.log
+                    data:
+                      name: "Wallbox Modus"
+                      message: "Modus → Manuell. {{ kw }} kW, frc=2."
+
+      # ---------------------------------------------------------------
+      # 6) Manuelle kW-Vorgabe umsetzen (nur im Modus "Manuell")
+      # ---------------------------------------------------------------
+      - conditions:
+          - condition: trigger
+            id: manual_power_changed
+          - condition: state
+            entity_id: !input lademodus_helper
+            state: "Manuell"
+        sequence:
+          - action: number.set_value
+            target:
+              entity_id: !input wallbox_amp
+            data:
+              value: >
+                {% set kw = states(manuelle_leistung_helper) | float(1.4) %}
+                {% set psm = states(wallbox_psm) %}
+                {% set phasen = 1 if psm == '1' else 3 %}
+                {{ [[((kw * 1000) / (phasen * voltage)) | round(0) | int, max_amp] | min, min_amp] | max }}
+
+      # ---------------------------------------------------------------
+      # 7) PV-Überschuss Start
+      # ---------------------------------------------------------------
+      - conditions:
+          - condition: trigger
+            id: pv_start
+          - condition: state
+            entity_id: !input car_connected_entity
+            state: "on"
+          - condition: state
+            entity_id: !input wallbox_frc
+            state: "1"
+          - condition: state
+            entity_id: !input lademodus_helper
+            state: "PV-Überschuss"
+          - condition: numeric_state
+            entity_id: !input pv_ueberschuss_sensor
+            above: !input surplus_start_w
+        sequence:
+          - variables:
+              ueberschuss: "{{ states(pv_ueberschuss_sensor) | float(0) }}"
+              soll_phase: "{{ '2' if states(pv_ueberschuss_sensor) | float(0) >= phase_up_threshold else '1' }}"
+              soll_phasen: "{{ 3 if states(pv_ueberschuss_sensor) | float(0) >= phase_up_threshold else 1 }}"
+          - variables:
+              soll_amp: >
+                {{ [[(ueberschuss / (soll_phasen | int * voltage)) | int, max_amp] | min, min_amp] | max }}
+          - action: select.select_option
+            target:
+              entity_id: !input wallbox_psm
+            data:
+              option: "{{ soll_phase }}"
+          - delay: "00:00:03"
+          - action: number.set_value
+            target:
+              entity_id: !input wallbox_amp
+            data:
+              value: "{{ soll_amp }}"
+          - delay: "00:00:02"
+          - action: select.select_option
+            target:
+              entity_id: !input wallbox_frc
+            data:
+              option: "2"
+          - action: input_datetime.set_datetime
+            target:
+              entity_id: !input letzter_phasenwechsel_helper
+            data:
+              datetime: "{{ now().strftime('%Y-%m-%d %H:%M:%S') }}"
+          - action: logbook.log
+            data:
+              name: "⚡ Wallbox PV-Start"
+              message: >
+                PV-Laden gestartet! {{ soll_phasen }}ph × {{ soll_amp }}A
+                ({{ soll_amp | int * soll_phasen | int * voltage }}W) |
+                Überschuss: {{ ueberschuss | round(0) }}W
+
+      # ---------------------------------------------------------------
+      # 8) PV-Überschuss Stopp
+      # ---------------------------------------------------------------
+      - conditions:
+          - condition: trigger
+            id: pv_stop
+          - condition: state
+            entity_id: !input car_connected_entity
+            state: "on"
+          - condition: state
+            entity_id: !input wallbox_frc
+            state: "2"
+          - condition: state
+            entity_id: !input lademodus_helper
+            state: "PV-Überschuss"
+        sequence:
+          - action: select.select_option
+            target:
+              entity_id: !input wallbox_frc
+            data:
+              option: "1"
+          - action: logbook.log
+            data:
+              name: "⏸️ Wallbox PV-Stopp"
+              message: >
+                PV-Laden gestoppt! Überschuss {{ states(pv_ueberschuss_sensor) }}W
+                zu gering.
+
+      # ---------------------------------------------------------------
+      # 9) Umschaltung auf 1-phasig
+      # ---------------------------------------------------------------
+      - conditions:
+          - condition: trigger
+            id: phase_down
+          - condition: state
+            entity_id: !input wallbox_psm
+            state: "2"
+          - condition: or
+            conditions:
+              - condition: state
+                entity_id: !input wallbox_frc
+                state: "2"
+              - condition: state
+                entity_id: !input wallbox_frc
+                state: "1"
+          - condition: state
+            entity_id: !input car_connected_entity
+            state: "on"
+          - condition: state
+            entity_id: !input lademodus_helper
+            state: "PV-Überschuss"
+          - condition: template
+            value_template: >
+              {{ (as_timestamp(now()) - (as_timestamp(states(letzter_phasenwechsel_helper), 0))) > phase_cooldown }}
+        sequence:
+          - variables:
+              ueberschuss: "{{ states(pv_ueberschuss_sensor) | float(0) }}"
+              war_aktiv: "{{ states(wallbox_frc) == '2' }}"
+
+          - if:
+              - condition: template
+                value_template: "{{ war_aktiv }}"
+            then:
+              - action: select.select_option
+                target:
+                  entity_id: !input wallbox_frc
+                data:
+                  option: "1"
+              - delay: "00:00:03"
+          - action: select.select_option
+            target:
+              entity_id: !input wallbox_psm
+            data:
+              option: "1"
+          - delay: "00:00:03"
+          - variables:
+              soll_amp: >
+                {{ [[(ueberschuss / (1 * voltage)) | int, max_amp] | min, min_amp] | max }}
+          - action: number.set_value
+            target:
+              entity_id: !input wallbox_amp
+            data:
+              value: "{{ soll_amp }}"
+          - delay: "00:00:02"
+          - if:
+              - condition: template
+                value_template: "{{ ueberschuss >= min_amp * voltage }}"
+            then:
+              - action: select.select_option
+                target:
+                  entity_id: !input wallbox_frc
+                data:
+                  option: "2"
+            else:
+              - action: logbook.log
+                data:
+                  name: "⏸️ Wallbox"
+                  message: >
+                    Phase gewechselt auf 1-ph, aber Überschuss zu gering
+                    zum Starten ({{ ueberschuss | round(0) }}W).
+          - action: input_datetime.set_datetime
+            target:
+              entity_id: !input letzter_phasenwechsel_helper
+            data:
+              datetime: "{{ now().strftime('%Y-%m-%d %H:%M:%S') }}"
+          - action: logbook.log
+            data:
+              name: "🔄 Phasenwechsel"
+              message: >
+                3-ph → 1-ph | Überschuss: {{ ueberschuss | round(0) }}W |
+                Neuer Strom: {{ soll_amp }}A | War aktiv: {{ war_aktiv }}
+
+      # ---------------------------------------------------------------
+      # 10) Umschaltung auf 3-phasig
+      # ---------------------------------------------------------------
+      - conditions:
+          - condition: trigger
+            id: phase_up
+          - condition: state
+            entity_id: !input wallbox_psm
+            state: "1"
+          - condition: or
+            conditions:
+              - condition: state
+                entity_id: !input wallbox_frc
+                state: "2"
+              - condition: state
+                entity_id: !input wallbox_frc
+                state: "1"
+          - condition: state
+            entity_id: !input car_connected_entity
+            state: "on"
+          - condition: state
+            entity_id: !input lademodus_helper
+            state: "PV-Überschuss"
+          - condition: template
+            value_template: >
+              {{ (as_timestamp(now()) - (as_timestamp(states(letzter_phasenwechsel_helper), 0))) > phase_cooldown }}
+        sequence:
+          - variables:
+              ueberschuss: "{{ states(pv_ueberschuss_sensor) | float(0) }}"
+              war_aktiv: "{{ states(wallbox_frc) == '2' }}"
+          - if:
+              - condition: template
+                value_template: "{{ war_aktiv }}"
+            then:
+              - action: select.select_option
+                target:
+                  entity_id: !input wallbox_frc
+                data:
+                  option: "1"
+              - delay: "00:00:03"
+          - action: select.select_option
+            target:
+              entity_id: !input wallbox_psm
+            data:
+              option: "2"
+          - delay: "00:00:03"
+          - variables:
+              soll_amp: >
+                {{ [[(ueberschuss / (3 * voltage)) | int, max_amp] | min, min_amp] | max }}
+          - action: number.set_value
+            target:
+              entity_id: !input wallbox_amp
+            data:
+              value: "{{ soll_amp }}"
+          - delay: "00:00:02"
+          - action: select.select_option
+            target:
+              entity_id: !input wallbox_frc
+            data:
+              option: "2"
+          - action: input_datetime.set_datetime
+            target:
+              entity_id: !input letzter_phasenwechsel_helper
+            data:
+              datetime: "{{ now().strftime('%Y-%m-%d %H:%M:%S') }}"
+          - action: logbook.log
+            data:
+              name: "🔄 Phasenwechsel"
+              message: >
+                1-ph → 3-ph | Überschuss: {{ ueberschuss | round(0) }}W |
+                Neuer Strom: {{ soll_amp }}A | War aktiv: {{ war_aktiv }}
+
+      # ---------------------------------------------------------------
+      # 11) Persistentes Logging (optional, nur wenn notify_target gesetzt)
+      # ---------------------------------------------------------------
+      - conditions:
+          - condition: trigger
+            id:
+              - log_frc
+              - log_amp
+              - log_psm
+              - log_modus
+              - log_car
+          - condition: template
+            value_template: >
+              {{ notify_target not in ['', none]
+                 and trigger.from_state.state != trigger.to_state.state
+                 and trigger.from_state.state not in ['unknown', 'unavailable']
+                 and trigger.to_state.state not in ['unknown', 'unavailable'] }}
+        sequence:
+          - choose:
+              - conditions:
+                  - condition: trigger
+                    id: log_frc
+                sequence:
+                  - action: notify.send_message
+                    target:
+                      entity_id: "{{ notify_target }}"
+                    data:
+                      message: >
+                        {% if trigger.to_state.state == '2' %}
+                        ▶️ LADEN GESTARTET | {{ states(wallbox_amp) }}A
+                        {% else %}
+                        ⏸ LADEN GESTOPPT | Modus: {{ states(lademodus_helper) }}
+                        {% endif %}
+              - conditions:
+                  - condition: trigger
+                    id: log_amp
+                sequence:
+                  - action: notify.send_message
+                    target:
+                      entity_id: "{{ notify_target }}"
+                    data:
+                      message: >
+                        🔌 STROM: {{ trigger.from_state.state }}A → {{ trigger.to_state.state }}A
+              - conditions:
+                  - condition: trigger
+                    id: log_psm
+                sequence:
+                  - action: notify.send_message
+                    target:
+                      entity_id: "{{ notify_target }}"
+                    data:
+                      message: >
+                        🔄 PHASEN: {{ '1-phasig' if trigger.from_state.state == '1' else '3-phasig' }}
+                        → {{ '1-phasig' if trigger.to_state.state == '1' else '3-phasig' }}
+              - conditions:
+                  - condition: trigger
+                    id: log_modus
+                sequence:
+                  - action: notify.send_message
+                    target:
+                      entity_id: "{{ notify_target }}"
+                    data:
+                      message: "🔘 MODUS: {{ trigger.from_state.state }} → {{ trigger.to_state.state }}"
+              - conditions:
+                  - condition: trigger
+                    id: log_car
+                sequence:
+                  - action: notify.send_message
+                    target:
+                      entity_id: "{{ notify_target }}"
+                    data:
+                      message: "🚗 AUTO: {{ 'Verbunden' if trigger.to_state.state == 'on' else 'Getrennt' }}"
+
+mode: queued
+max: 10
