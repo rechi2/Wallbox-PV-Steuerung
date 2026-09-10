@@ -1,0 +1,61 @@
+# ============================================================
+# Wallbox Helper – packages-Datei
+#
+# Einbindung in configuration.yaml (falls "packages" noch nicht
+# aktiviert ist):
+#
+#   homeassistant:
+#     packages: !include_dir_named packages
+#
+# Diese Datei dann als /config/packages/wallbox_helpers.yaml
+# ablegen. Alternativ können alle Helper auch manuell über
+# Einstellungen -> Geräte & Dienste -> Helfer angelegt werden
+# (siehe README_Installation.md).
+# ============================================================
+
+input_select:
+  lademodus:
+    name: Lademodus
+    icon: mdi:ev-station
+    options:
+      - Kein Laden
+      - PV-Überschuss
+      - Schnell
+      - Manuell
+
+input_number:
+  batterie_priority_soc:
+    name: Batterie-Priorität SOC
+    icon: mdi:battery-charging-high
+    min: 0
+    max: 100
+    step: 1
+    unit_of_measurement: "%"
+
+  wallbox_manuelle_leistung:
+    name: Wallbox manuelle Leistung
+    icon: mdi:speedometer
+    min: 1.4
+    max: 22
+    step: 0.1
+    unit_of_measurement: kW
+
+  wallbox_anteil_ueberschuss:
+    name: Wallbox Anteil am Überschuss
+    icon: mdi:scale-balance
+    min: 0
+    max: 100
+    step: 5
+    unit_of_measurement: "%"
+    # Hinweis: Wird aktuell nur im Dashboard zur Visualisierung
+    # verwendet, nicht in der Automations-Logik ausgewertet.
+    # Falls gewünscht, kann das als weiterer Blueprint-Input
+    # ergänzt und in die "dynamic_adjust"-Berechnung eingebaut
+    # werden.
+
+input_datetime:
+  letzter_phasenwechsel:
+    name: Letzter Phasenwechsel Wallbox
+    icon: mdi:swap-horizontal
+    has_date: true
+    has_time: true
