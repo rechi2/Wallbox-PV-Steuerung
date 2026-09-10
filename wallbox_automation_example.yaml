@@ -1,0 +1,39 @@
+# ============================================================
+# Beispiel-Instanz der Blueprint-Automation.
+#
+# So NICHT direkt unter /config/automations.yaml einfügen -
+# stattdessen über die UI (Einstellungen -> Automationen ->
+# Automation erstellen -> aus Blueprint) anlegen und dort die
+# gleichen Werte eintragen. Diese Datei dient nur als Referenz /
+# Blaupause für die Werte aus deiner alten Konfiguration.
+# ============================================================
+
+alias: "Wallbox: PV-Steuerung (go-e)"
+description: "Konsolidierte Wallbox-Automation, erzeugt aus dem Blueprint wallbox_pv_steuerung"
+use_blueprint:
+  path: wallbox_pv_steuerung.yaml
+  input:
+    car_connected_entity: binary_sensor.goe_501900_car_0
+    wallbox_frc: select.goe_501900_frc
+    wallbox_psm: select.goe_501900_psm
+    wallbox_amp: number.goe_501900_amp
+    pv_ueberschuss_sensor: sensor.wallbox_ziel_uberschuss
+    battery_soc_sensor: sensor.battery_soc
+    lademodus_helper: input_select.lademodus
+    batterie_priority_soc_helper: input_number.batterie_priority_soc
+    manuelle_leistung_helper: input_number.wallbox_manuelle_leistung
+    letzter_phasenwechsel_helper: input_datetime.letzter_phasenwechsel
+    notify_target: notify.wallbox_log
+    surplus_start_w: 1380
+    surplus_start_for_minutes: 2
+    surplus_stop_w: 1380
+    surplus_stop_for_minutes: 5
+    phase_down_threshold_w: 3500
+    phase_up_threshold_w: 4200
+    phase_stable_minutes: 5
+    phase_cooldown_seconds: 600
+    battery_stop_seconds: 30
+    dynamic_adjust_interval: "/2"
+    min_amp: 6
+    max_amp: 16
+    voltage: 230
